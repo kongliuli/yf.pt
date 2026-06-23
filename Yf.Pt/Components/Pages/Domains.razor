@@ -1,0 +1,158 @@
+@page "/domains"
+@inject DomainBindingService DomainService
+@inject AppProjectService ProjectService
+
+<PageTitle>域名管理</PageTitle>
+
+<div class="d-flex justify-content-between align-items-center mb-3">
+    <h1 class="mb-0">域名管理</h1>
+    <button class="btn btn-primary btn-sm" @onclick="OpenCreate">+ 新增绑定</button>
+</div>
+
+@if (_bindings == null)
+{
+    <div class="text-muted p-5 text-center">加载中...</div>
+}
+else
+{
+    <div class="card shadow-sm">
+        <div class="card-body">
+            <table class="table table-hover align-middle mb-0">
+                <thead>
+                    <tr>
+                        <th>域名</th><th>所属项目</th><th>类型</th><th>指向</th><th>关联云资源</th><th></th>
+                    </tr>
+                </thead>
+                <tbody>
+                    @foreach (var d in _bindings)
+                    {
+                        <tr>
+                            <td><code>@d.Domain</code></td>
+                            <td>@(d.AppProject?.Name ?? "-")</td>
+                            <td><span class="badge bg-info">@d.Type</span></td>
+                            <td>@d.Target</td>
+                            <td>@(d.CloudResourceId ?? "-")</td>
+                            <td>
+                                <button class="btn btn-sm btn-outline-secondary me-1" @onclick="() => OpenEdit(d)">编辑</button>
+                                <button class="btn btn-sm btn-outline-danger" @onclick="() => Delete(d)">删除</button>
+                            </td>
+                        </tr>
+                    }
+                </tbody>
+            </table>
+        </div>
+    </div>
+}
+
+@if (_editing != null)
+{
+    <div class="modal d-block" tabindex="-1">
+        <div class="modal-dialog">
+            <div class="modal-content">
+                <EditForm Model="_editing" OnValidSubmit="Save">
+                    <div class="modal-header">
+                        <h5 class="modal-title">@(IsNew ? "新增域名绑定" : "编辑域名绑定")</h5>
+                        <button type="button" class="btn-close" @onclick="CloseEdit"></button>
+                    </div>
+                    <div class="modal-body">
+                        <div class="mb-3">
+                            <label class="form-label">所属项目</label>
+                            <InputSelect class="form-select" @bind-Value="_editing.AppProjectId">
+                                @foreach (var p in _projects!)
+                                {
+                                    <option value="@p.Id">@p.Name</option>
+                                }
+                            </InputSelect>
+                        </div>
+                        <div class="mb-3">
+                            <label class="form-label">域名</label>
+                            <InputText class="form-control" @bind-Value="_editing.Domain" />
+                        </div>
+                        <div class="mb-3">
+                            <label class="form-label">类型</label>
+                            <InputSelect class="form-select" @bind-Value="_editing.Type">
+                                <option value="A">A</option>
+                                <option value="CNAME">CNAME</option>
+                                <option value="SLB">SLB</option>
+                                <option value="OSS">OSS</option>
+                            </InputSelect>
+                        </div>
+                        <div class="mb-3">
+                            <label class="form-label">指向</label>
+                            <InputText class="form-control" @bind-Value="_editing.Target" />
+                        </div>
+                        <div class="mb-3">
+                            <label class="form-label">关联云资源ID（可选）</label>
+                            <InputText class="form-control" @bind-Value="_editing.CloudResourceId" />
+                        </div>
+                    </div>
+                    <div class="modal-footer">
+                        <button type="button" class="btn btn-secondary" @onclick="CloseEdit">取消</button>
+                        <button type="submit" class="btn btn-primary">保存</button>
+                    </div>
+                </EditForm>
+            </div>
+        </div>
+    </div>
+    <div class="modal-backdrop fade show"></div>
+}
+
+@code {
+    private List<DomainBinding>? _bindings;
+    private List<AppProject>? _projects;
+    private DomainBinding? _editing;
+    private bool IsNew;
+
+    protected override async Task OnInitializedAsync()
+    {
+        try
+        {
+            _projects = await ProjectService.ListAsync();
+            await Reload();
+        }
+        catch { _bindings = new(); _projects = new(); }
+    }
+
+    private async Task Reload()
+    {
+        try { _bindings = await DomainService.ListAsync(); }
+        catch { _bindings = new(); }
+    }
+
+    private void OpenCreate()
+    {
+        IsNew = true;
+        _editing = new DomainBinding { AppProjectId = _projects?.FirstOrDefault()?.Id ?? 0, Type = "A" };
+    }
+
+    private void OpenEdit(DomainBinding d)
+    {
+        IsNew = false;
+        _editing = new DomainBinding
+        {
+            Id = d.Id,
+            AppProjectId = d.AppProjectId,
+            Domain = d.Domain,
+            Type = d.Type,
+            Target = d.Target,
+            CloudResourceId = d.CloudResourceId,
+            CreatedAt = d.CreatedAt
+        };
+    }
+
+    private void CloseEdit() => _editing = null;
+
+    private async Task Save()
+    {
+        if (IsNew) await DomainService.AddAsync(_editing!);
+        else await DomainService.UpdateAsync(_editing!);
+        _editing = null;
+        await Reload();
+    }
+
+    private async Task Delete(DomainBinding d)
+    {
+        await DomainService.DeleteAsync(d.Id);
+        await Reload();
+    }
+}

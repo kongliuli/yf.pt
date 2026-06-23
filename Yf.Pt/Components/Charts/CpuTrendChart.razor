@@ -1,0 +1,42 @@
+@* CPU 趋势折线图（多 ECS 序列） *@
+@inject DashboardService DashboardSvc
+
+@if (_series == null)
+{
+    <div class="text-muted p-4 text-center">加载中...</div>
+}
+else if (_series.Count == 0)
+{
+    <div class="text-muted p-4 text-center">暂无数据</div>
+}
+else
+{
+    <ApexChart TItem="MetricPoint" Title="近 24h CPU 使用率趋势 (%)" Height="300" Options="_options">
+        @foreach (var s in _series)
+        {
+            <ApexPointSeries TItem="MetricPoint"
+                             Name="@s.Name"
+                             SeriesType="SeriesType.Line"
+                             Items="@s.Points"
+                             XValue="@(x => x.Timestamp)"
+                             YValue="@(x => x.Value)" />
+        }
+    </ApexChart>
+}
+
+@code {
+    private List<MetricSeries>? _series;
+    private ApexChartOptions<MetricPoint> _options = new()
+    {
+        Chart = new Chart { Toolbar = new Toolbar { Show = false } },
+        Xaxis = new XAxis { Type = XAxisType.Datetime },
+        Stroke = new Stroke { Curve = Curve.Smooth, Width = 2 },
+        Yaxis = new List<YAxis> { new() { Min = 0, Max = 100 } }
+    };
+
+    protected override async Task OnInitializedAsync()
+    {
+        try { _series = await DashboardSvc.GetCpuTrendAsync(24); }
+        catch { _series = new(); }
+    }
+}

@@ -1,0 +1,18 @@
+# 构建产物
+bin/
+obj/
+*.user
+*.suo
+
+# SQLite 数据库文件（运行时生成）
+*.db
+*.db-shm
+*.db-wal
+
+# IDE
+.vs/
+.idea/
+
+# 日志
+*.log
+logs/

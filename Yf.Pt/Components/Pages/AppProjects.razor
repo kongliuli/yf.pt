@@ -1,0 +1,120 @@
+@page "/projects"
+@inject AppProjectService ProjectService
+@inject NavigationManager Nav
+
+<PageTitle>App 项目</PageTitle>
+
+<div class="d-flex justify-content-between align-items-center mb-3">
+    <h1 class="mb-0">App 项目</h1>
+    <button class="btn btn-primary btn-sm" @onclick="OpenCreate">+ 新增项目</button>
+</div>
+
+@if (_projects == null)
+{
+    <div class="text-muted p-5 text-center">加载中...</div>
+}
+else
+{
+    <div class="card shadow-sm">
+        <div class="card-body">
+            <table class="table table-hover align-middle mb-0">
+                <thead>
+                    <tr><th>名称</th><th>描述</th><th>负责人</th><th>域名数</th><th>创建时间</th><th></th></tr>
+                </thead>
+                <tbody>
+                    @foreach (var p in _projects)
+                    {
+                        <tr>
+                            <td>@p.Name</td>
+                            <td>@(p.Description ?? "-")</td>
+                            <td>@(p.Owner ?? "-")</td>
+                            <td>@p.DomainBindings.Count</td>
+                            <td>@p.CreatedAt.ToLocalTime().ToString("yyyy-MM-dd")</td>
+                            <td>
+                                <button class="btn btn-sm btn-outline-secondary me-1" @onclick="() => OpenEdit(p)">编辑</button>
+                                <button class="btn btn-sm btn-outline-danger" @onclick="() => Delete(p)">删除</button>
+                            </td>
+                        </tr>
+                    }
+                </tbody>
+            </table>
+        </div>
+    </div>
+}
+
+@if (_editing != null)
+{
+    <div class="modal d-block" tabindex="-1">
+        <div class="modal-dialog">
+            <div class="modal-content">
+                <EditForm Model="_editing" OnValidSubmit="Save">
+                    <div class="modal-header">
+                        <h5 class="modal-title">@(IsNew ? "新增项目" : "编辑项目")</h5>
+                        <button type="button" class="btn-close" @onclick="CloseEdit"></button>
+                    </div>
+                    <div class="modal-body">
+                        <div class="mb-3">
+                            <label class="form-label">名称</label>
+                            <InputText class="form-control" @bind-Value="_editing.Name" />
+                        </div>
+                        <div class="mb-3">
+                            <label class="form-label">描述</label>
+                            <InputText class="form-control" @bind-Value="_editing.Description" />
+                        </div>
+                        <div class="mb-3">
+                            <label class="form-label">负责人</label>
+                            <InputText class="form-control" @bind-Value="_editing.Owner" />
+                        </div>
+                    </div>
+                    <div class="modal-footer">
+                        <button type="button" class="btn btn-secondary" @onclick="CloseEdit">取消</button>
+                        <button type="submit" class="btn btn-primary">保存</button>
+                    </div>
+                </EditForm>
+            </div>
+        </div>
+    </div>
+    <div class="modal-backdrop fade show"></div>
+}
+
+@code {
+    private List<AppProject>? _projects;
+    private AppProject? _editing;
+    private bool IsNew;
+
+    protected override async Task OnInitializedAsync() => await Reload();
+
+    private async Task Reload()
+    {
+        try { _projects = await ProjectService.ListAsync(); }
+        catch { _projects = new(); }
+    }
+
+    private void OpenCreate()
+    {
+        IsNew = true;
+        _editing = new AppProject();
+    }
+
+    private void OpenEdit(AppProject p)
+    {
+        IsNew = false;
+        _editing = new AppProject { Id = p.Id, Name = p.Name, Description = p.Description, Owner = p.Owner, CreatedAt = p.CreatedAt };
+    }
+
+    private void CloseEdit() => _editing = null;
+
+    private async Task Save()
+    {
+        if (IsNew) await ProjectService.AddAsync(_editing!);
+        else await ProjectService.UpdateAsync(_editing!);
+        _editing = null;
+        await Reload();
+    }
+
+    private async Task Delete(AppProject p)
+    {
+        await ProjectService.DeleteAsync(p.Id);
+        await Reload();
+    }
+}

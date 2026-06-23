@@ -1,0 +1,74 @@
+@* 单个资源的 CPU/内存/网络指标图 *@
+@inject DashboardService DashboardSvc
+
+@if (_cpu == null || _mem == null || _net == null)
+{
+    <div class="text-muted p-4 text-center">加载指标中...</div>
+}
+else
+{
+    <ApexChart TItem="MetricPoint" Title="CPU 使用率 (%)" Height="220" Options="_cpuOpts" class="mb-3">
+        <ApexPointSeries TItem="MetricPoint"
+                         Name="CPU"
+                         SeriesType="SeriesType.Area"
+                         Items="@_cpu"
+                         XValue="@(x => x.Timestamp)"
+                         YValue="@(x => x.Value)" />
+    </ApexChart>
+
+    <ApexChart TItem="MetricPoint" Title="内存使用率 (%)" Height="220" Options="_memOpts" class="mb-3">
+        <ApexPointSeries TItem="MetricPoint"
+                         Name="内存"
+                         SeriesType="SeriesType.Area"
+                         Items="@_mem"
+                         XValue="@(x => x.Timestamp)"
+                         YValue="@(x => x.Value)" />
+    </ApexChart>
+
+    <ApexChart TItem="MetricPoint" Title="网络流量 (KB/s)" Height="220" Options="_netOpts">
+        <ApexPointSeries TItem="MetricPoint"
+                         Name="网络"
+                         SeriesType="SeriesType.Area"
+                         Items="@_net"
+                         XValue="@(x => x.Timestamp)"
+                         YValue="@(x => x.Value)" />
+    </ApexChart>
+}
+
+@code {
+    [Parameter] public string ResourceId { get; set; } = "";
+
+    private List<MetricPoint>? _cpu;
+    private List<MetricPoint>? _mem;
+    private List<MetricPoint>? _net;
+
+    private readonly ApexChartOptions<MetricPoint> _cpuOpts = BuildOpts(0, 100);
+    private readonly ApexChartOptions<MetricPoint> _memOpts = BuildOpts(0, 100);
+    private readonly ApexChartOptions<MetricPoint> _netOpts = new()
+    {
+        Chart = new Chart { Toolbar = new Toolbar { Show = false } },
+        Xaxis = new XAxis { Type = XAxisType.Datetime }
+    };
+
+    private static ApexChartOptions<MetricPoint> BuildOpts(decimal min, decimal max) => new()
+    {
+        Chart = new Chart { Toolbar = new Toolbar { Show = false } },
+        Xaxis = new XAxis { Type = XAxisType.Datetime },
+        Yaxis = new List<YAxis> { new() { Min = min, Max = max } }
+    };
+
+    protected override async Task OnInitializedAsync()
+    {
+        try
+        {
+            var range = new TimeRange(DateTime.UtcNow.AddHours(-24), DateTime.UtcNow);
+            _cpu = (await DashboardSvc.GetMetricsAsync(ResourceId, "cpu", range)).ToList();
+            _mem = (await DashboardSvc.GetMetricsAsync(ResourceId, "memory", range)).ToList();
+            _net = (await DashboardSvc.GetMetricsAsync(ResourceId, "network", range)).ToList();
+        }
+        catch
+        {
+            _cpu = new(); _mem = new(); _net = new();
+        }
+    }
+}

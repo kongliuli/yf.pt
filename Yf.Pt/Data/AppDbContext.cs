@@ -11,6 +11,10 @@ public class AppDbContext : DbContext
     public DbSet<DomainBinding> DomainBindings => Set<DomainBinding>();
     public DbSet<LocalResource> LocalResources => Set<LocalResource>();
     public DbSet<CloudResourceSnapshot> CloudResourceSnapshots => Set<CloudResourceSnapshot>();
+    public DbSet<KnowledgeArticle> KnowledgeArticles => Set<KnowledgeArticle>();
+    public DbSet<Certificate> Certificates => Set<Certificate>();
+    public DbSet<AlertRecord> Alerts => Set<AlertRecord>();
+    public DbSet<CostRecord> CostRecords => Set<CostRecord>();
 
     protected override void OnModelCreating(ModelBuilder b)
     {
@@ -55,6 +59,49 @@ public class AppDbContext : DbContext
             e.Property(x => x.Type).IsRequired().HasMaxLength(20);
             e.Property(x => x.Name).IsRequired().HasMaxLength(100);
             e.Property(x => x.Status).IsRequired().HasMaxLength(20);
+        });
+
+        b.Entity<KnowledgeArticle>(e =>
+        {
+            e.Property(x => x.Title).IsRequired().HasMaxLength(200);
+            e.Property(x => x.Category).IsRequired().HasMaxLength(20);
+            e.Property(x => x.Tags).HasMaxLength(200);
+            e.Property(x => x.Author).HasMaxLength(50);
+            e.HasOne(x => x.AppProject)
+                .WithMany()
+                .HasForeignKey(x => x.AppProjectId)
+                .OnDelete(DeleteBehavior.SetNull);
+        });
+
+        b.Entity<Certificate>(e =>
+        {
+            e.Property(x => x.Domain).IsRequired().HasMaxLength(255);
+            e.Property(x => x.Issuer).IsRequired().HasMaxLength(100);
+            e.Property(x => x.Note).HasMaxLength(500);
+        });
+
+        b.Entity<AlertRecord>(e =>
+        {
+            e.Property(x => x.ResourceId).IsRequired().HasMaxLength(100);
+            e.Property(x => x.ResourceName).IsRequired().HasMaxLength(100);
+            e.Property(x => x.Severity).IsRequired().HasMaxLength(20);
+            e.Property(x => x.Title).IsRequired().HasMaxLength(200);
+            e.Property(x => x.Status).IsRequired().HasMaxLength(20);
+            e.HasIndex(x => x.Status);
+        });
+
+        b.Entity<CostRecord>(e =>
+        {
+            e.Property(x => x.ResourceId).IsRequired().HasMaxLength(100);
+            e.Property(x => x.ResourceName).IsRequired().HasMaxLength(100);
+            e.Property(x => x.Currency).IsRequired().HasMaxLength(10);
+            e.Property(x => x.Period).IsRequired().HasMaxLength(10);
+            e.Property(x => x.Category).IsRequired().HasMaxLength(20);
+            e.HasOne(x => x.AppProject)
+                .WithMany()
+                .HasForeignKey(x => x.AppProjectId)
+                .OnDelete(DeleteBehavior.SetNull);
+            e.HasIndex(x => x.Period);
         });
     }
 }

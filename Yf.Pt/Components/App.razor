@@ -14,7 +14,23 @@
 
 <body>
     <Routes />
+    <script src="https://cdn.jsdelivr.net/npm/mermaid@10/dist/mermaid.min.js"></script>
     <script src="_framework/blazor.web.js"></script>
+    <script>
+        // Mermaid 渲染互操作
+        window.renderMermaid = async function (elementId, definition) {
+            if (typeof mermaid === 'undefined') return;
+            mermaid.initialize({ startOnLoad: false, securityLevel: 'loose' });
+            const el = document.getElementById(elementId);
+            if (!el) return;
+            try {
+                const { svg } = await mermaid.render('mmd_' + Date.now(), definition);
+                el.innerHTML = svg;
+            } catch (e) {
+                el.innerHTML = '<pre class="text-danger">' + e.message + '</pre>';
+            }
+        };
+    </script>
 </body>
 
 </html>

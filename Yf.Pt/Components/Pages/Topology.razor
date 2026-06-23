@@ -1,0 +1,39 @@
+@page "/topology"
+@inject TopologyService TopologySvc
+@inject IJSRuntime JS
+
+<PageTitle>资源拓扑</PageTitle>
+
+<h1>资源拓扑</h1>
+<p class="text-muted">项目 → 域名 → 云资源 调用关系图（Mermaid 渲染）。</p>
+
+@if (_mermaid == null)
+{
+    <div class="text-muted p-5 text-center">加载中...</div>
+}
+else
+{
+    <div class="card shadow-sm">
+        <div class="card-body">
+            <div id="topology-graph" class="overflow-auto"></div>
+        </div>
+    </div>
+}
+
+@code {
+    private string? _mermaid;
+
+    protected override async Task OnInitializedAsync()
+    {
+        try { _mermaid = await TopologySvc.BuildMermaidAsync(); }
+        catch { _mermaid = "flowchart LR\n  empty[暂无数据]"; }
+    }
+
+    protected override async Task OnAfterRenderAsync(bool firstRender)
+    {
+        if (_mermaid != null)
+        {
+            await JS.InvokeVoidAsync("renderMermaid", "topology-graph", _mermaid);
+        }
+    }
+}

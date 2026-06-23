@@ -1,0 +1,107 @@
+@page "/costs"
+@inject CostService CostSvc
+
+<PageTitle>成本分摊</PageTitle>
+
+<h1>成本分摊</h1>
+
+@if (_summary == null || _records == null)
+{
+    <div class="text-muted p-5 text-center">加载中...</div>
+}
+else
+{
+    <div class="d-flex justify-content-between align-items-center mb-3">
+        <div>
+            <select class="form-select form-select-sm d-inline-block w-auto" @bind="_period">
+                <option value="">全部周期</option>
+                @foreach (var p in _periods)
+                {
+                    <option value="@p">@p</option>
+                }
+            </select>
+        </div>
+    </div>
+
+    <div class="row g-3 mb-4">
+        <div class="col-md-12">
+            <div class="card text-center shadow-sm">
+                <div class="card-body">
+                    <div class="display-5 text-primary">¥ @(_summary.TotalAmount.ToString("N2"))</div>
+                    <div class="text-muted">@(string.IsNullOrEmpty(_period) ? "近 3 个月合计" : _period) 总成本</div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div class="row g-3 mb-4">
+        <div class="col-md-6">
+            <div class="card shadow-sm">
+                <div class="card-body">
+                    <CostByProjectChart Data="@_summary.ByProject" />
+                </div>
+            </div>
+        </div>
+        <div class="col-md-6">
+            <div class="card shadow-sm">
+                <div class="card-body">
+                    <CostByCategoryChart Data="@_summary.ByCategory" />
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div class="card shadow-sm">
+        <div class="card-header bg-white"><strong>成本明细</strong></div>
+        <div class="card-body">
+            <table class="table table-hover table-sm align-middle mb-0">
+                <thead>
+                    <tr><th>资源</th><th>项目</th><th>类别</th><th>周期</th><th>金额(¥)</th></tr>
+                </thead>
+                <tbody>
+                    @foreach (var r in _records.OrderByDescending(x => x.Period).ThenByDescending(x => x.Amount))
+                    {
+                        <tr>
+                            <td>@r.ResourceName <code class="ms-1">@r.ResourceId</code></td>
+                            <td>@(r.AppProject?.Name ?? "-")</td>
+                            <td><span class="badge bg-secondary">@r.Category</span></td>
+                            <td>@r.Period</td>
+                            <td>@r.Amount.ToString("N2")</td>
+                        </tr>
+                    }
+                </tbody>
+            </table>
+        </div>
+    </div>
+}
+
+@code {
+    private CostSummary? _summary;
+    private List<CostRecord>? _records;
+    private List<string> _periods = new();
+    private string _period = "";
+
+    protected override async Task OnInitializedAsync() => await Reload();
+
+    private async Task Reload()
+    {
+        try
+        {
+            _periods = await CostSvc.GetPeriodsAsync();
+            await ReloadData();
+        }
+        catch { _summary = new(); _records = new(); }
+    }
+
+    private async Task ReloadData()
+    {
+        _summary = await CostSvc.GetSummaryAsync(string.IsNullOrEmpty(_period) ? null : _period);
+        _records = await CostSvc.ListAsync(string.IsNullOrEmpty(_period) ? null : _period);
+    }
+
+    // 周期切换时重新加载
+    protected override async Task OnParametersSetAsync()
+    {
+        if (_summary != null) await ReloadData();
+    }
+}

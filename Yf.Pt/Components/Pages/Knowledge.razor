@@ -1,0 +1,199 @@
+@page "/knowledge"
+@inject KnowledgeService KnowledgeSvc
+@inject AppProjectService ProjectService
+@inject NavigationManager Nav
+
+<PageTitle>知识库</PageTitle>
+
+<div class="d-flex justify-content-between align-items-center mb-3">
+    <h1 class="mb-0">知识库</h1>
+    <button class="btn btn-primary btn-sm" @onclick="OpenCreate">+ 新建文章</button>
+</div>
+
+<div class="row mb-3">
+    <div class="col-md-8">
+        <input class="form-control" placeholder="搜索标题/正文/标签..." @bind="_keyword" @bind:event="oninput" />
+    </div>
+    <div class="col-md-4">
+        <select class="form-select" @bind="_category">
+            <option value="">全部分类</option>
+            <option value="sop">SOP</option>
+            <option value="doc">文档</option>
+            <option value="faq">FAQ</option>
+        </select>
+    </div>
+</div>
+
+@if (_articles == null)
+{
+    <div class="text-muted p-5 text-center">加载中...</div>
+}
+else
+{
+    <div class="row g-3">
+        @foreach (var a in _filtered)
+        {
+            <div class="col-md-6">
+                <div class="card h-100 shadow-sm">
+                    <div class="card-body">
+                        <div class="d-flex justify-content-between">
+                            <h5 class="card-title mb-1">
+                                <a href="/knowledge/@a.Id" class="text-decoration-none">@a.Title</a>
+                            </h5>
+                            <span class="badge bg-@CategoryColor(a.Category)">@CategoryLabel(a.Category)</span>
+                        </div>
+                        <div class="text-muted small mb-2">
+                            @(a.AppProject?.Name ?? "通用") · @(a.Author ?? "未知") · @a.UpdatedAt.ToLocalTime().ToString("yyyy-MM-dd")
+                        </div>
+                        <div class="text-muted small">
+                            @if (!string.IsNullOrEmpty(a.Tags))
+                            {
+                                @foreach (var t in a.Tags.Split(',', StringSplitOptions.RemoveEmptyEntries))
+                                {
+                                    <span class="badge bg-light text-dark me-1">@t.Trim()</span>
+                                }
+                            }
+                        </div>
+                    </div>
+                    <div class="card-footer bg-white d-flex justify-content-end">
+                        <button class="btn btn-sm btn-outline-secondary me-1" @onclick="() => OpenEdit(a)">编辑</button>
+                        <button class="btn btn-sm btn-outline-danger" @onclick="() => Delete(a)">删除</button>
+                    </div>
+                </div>
+            </div>
+        }
+        @if (_filtered.Count == 0)
+        {
+            <div class="col-12 text-muted text-center p-4">无匹配文章</div>
+        }
+    </div>
+}
+
+@if (_editing != null)
+{
+    <div class="modal d-block" tabindex="-1">
+        <div class="modal-dialog modal-lg">
+            <div class="modal-content">
+                <EditForm Model="_editing" OnValidSubmit="Save">
+                    <div class="modal-header">
+                        <h5 class="modal-title">@(IsNew ? "新建文章" : "编辑文章")</h5>
+                        <button type="button" class="btn-close" @onclick="CloseEdit"></button>
+                    </div>
+                    <div class="modal-body">
+                        <div class="mb-3">
+                            <label class="form-label">标题</label>
+                            <InputText class="form-control" @bind-Value="_editing.Title" />
+                        </div>
+                        <div class="row mb-3">
+                            <div class="col-md-4">
+                                <label class="form-label">分类</label>
+                                <InputSelect class="form-select" @bind-Value="_editing.Category">
+                                    <option value="sop">SOP</option>
+                                    <option value="doc">文档</option>
+                                    <option value="faq">FAQ</option>
+                                </InputSelect>
+                            </div>
+                            <div class="col-md-4">
+                                <label class="form-label">关联项目</label>
+                                <InputSelect class="form-select" @bind-Value="_editing.AppProjectId">
+                                    <option value="">无</option>
+                                    @foreach (var p in _projects!)
+                                    {
+                                        <option value="@p.Id">@p.Name</option>
+                                    }
+                                </InputSelect>
+                            </div>
+                            <div class="col-md-4">
+                                <label class="form-label">作者</label>
+                                <InputText class="form-control" @bind-Value="_editing.Author" />
+                            </div>
+                        </div>
+                        <div class="mb-3">
+                            <label class="form-label">标签（逗号分隔）</label>
+                            <InputText class="form-control" @bind-Value="_editing.Tags" />
+                        </div>
+                        <div class="mb-3">
+                            <label class="form-label">正文（Markdown）</label>
+                            <InputTextArea class="form-control" @bind-Value="_editing.Content" rows="12" />
+                        </div>
+                    </div>
+                    <div class="modal-footer">
+                        <button type="button" class="btn btn-secondary" @onclick="CloseEdit">取消</button>
+                        <button type="submit" class="btn btn-primary">保存</button>
+                    </div>
+                </EditForm>
+            </div>
+        </div>
+    </div>
+    <div class="modal-backdrop fade show"></div>
+}
+
+@code {
+    private List<KnowledgeArticle>? _articles;
+    private List<AppProject>? _projects;
+    private KnowledgeArticle? _editing;
+    private bool IsNew;
+    private string _keyword = "";
+    private string _category = "";
+
+    private List<KnowledgeArticle> _filtered =>
+        (_articles ?? new())
+        .Where(a => string.IsNullOrEmpty(_category) || a.Category == _category)
+        .Where(a => string.IsNullOrWhiteSpace(_keyword)
+                    || a.Title.Contains(_keyword, StringComparison.OrdinalIgnoreCase)
+                    || a.Content.Contains(_keyword, StringComparison.OrdinalIgnoreCase)
+                    || (a.Tags ?? "").Contains(_keyword, StringComparison.OrdinalIgnoreCase))
+        .OrderByDescending(a => a.UpdatedAt)
+        .ToList();
+
+    protected override async Task OnInitializedAsync()
+    {
+        try
+        {
+            _projects = await ProjectService.ListAsync();
+            await Reload();
+        }
+        catch { _articles = new(); _projects = new(); }
+    }
+
+    private async Task Reload()
+    {
+        try { _articles = await KnowledgeSvc.ListAsync(); }
+        catch { _articles = new(); }
+    }
+
+    private void OpenCreate()
+    {
+        IsNew = true;
+        _editing = new KnowledgeArticle { Category = "doc" };
+    }
+
+    private void OpenEdit(KnowledgeArticle a)
+    {
+        IsNew = false;
+        _editing = new KnowledgeArticle
+        {
+            Id = a.Id, Title = a.Title, Content = a.Content, Category = a.Category,
+            Tags = a.Tags, AppProjectId = a.AppProjectId, Author = a.Author
+        };
+    }
+
+    private void CloseEdit() => _editing = null;
+
+    private async Task Save()
+    {
+        if (IsNew) await KnowledgeSvc.AddAsync(_editing!);
+        else await KnowledgeSvc.UpdateAsync(_editing!);
+        _editing = null;
+        await Reload();
+    }
+
+    private async Task Delete(KnowledgeArticle a)
+    {
+        await KnowledgeSvc.DeleteAsync(a.Id);
+        await Reload();
+    }
+
+    private string CategoryLabel(string c) => c switch { "sop" => "SOP", "faq" => "FAQ", _ => "文档" };
+    private string CategoryColor(string c) => c switch { "sop" => "primary", "faq" => "warning", _ => "info" };
+}

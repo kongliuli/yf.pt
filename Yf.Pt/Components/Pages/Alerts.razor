@@ -1,0 +1,112 @@
+@page "/alerts"
+@inject AlertService AlertSvc
+
+<PageTitle>告警聚合</PageTitle>
+
+<h1>告警聚合</h1>
+
+@if (_alerts == null)
+{
+    <div class="text-muted p-5 text-center">加载中...</div>
+}
+else
+{
+    <div class="row g-3 mb-4">
+        <div class="col-md-3">
+            <div class="card text-center shadow-sm border-danger">
+                <div class="card-body">
+                    <div class="display-6 text-danger">@_summary.Critical</div>
+                    <div class="text-muted">严重</div>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-3">
+            <div class="card text-center shadow-sm border-warning">
+                <div class="card-body">
+                    <div class="display-6 text-warning">@_summary.Warning</div>
+                    <div class="text-muted">警告</div>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-3">
+            <div class="card text-center shadow-sm">
+                <div class="card-body">
+                    <div class="display-6 text-info">@_summary.Info</div>
+                    <div class="text-muted">信息</div>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-3">
+            <div class="card text-center shadow-sm">
+                <div class="card-body">
+                    <div class="display-6 text-primary">@_summary.Active</div>
+                    <div class="text-muted">活跃告警</div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div class="mb-3">
+        @foreach (var s in new[] { ("", "全部"), ("critical", "严重"), ("warning", "警告"), ("info", "信息") })
+        {
+            <button class="btn btn-sm @(SeverityFilter == s.Item1 ? "btn-primary" : "btn-outline-secondary") me-2"
+                    @onclick="() => Filter(s.Item1)">
+                @s.Item2
+            </button>
+        }
+    </div>
+
+    <div class="row g-3">
+        @foreach (var a in _filtered)
+        {
+            <div class="col-12">
+                <div class="card shadow-sm border-start border-4 border-@SeverityColor(a.Severity)">
+                    <div class="card-body">
+                        <div class="d-flex justify-content-between">
+                            <div>
+                                <span class="badge bg-@SeverityColor(a.Severity)">@SeverityLabel(a.Severity)</span>
+                                <strong class="ms-2">@a.Title</strong>
+                                <span class="badge bg-@StatusColor(a.Status) ms-2">@StatusLabel(a.Status)</span>
+                            </div>
+                            <small class="text-muted">@a.TriggeredAt.ToLocalTime().ToString("MM-dd HH:mm")</small>
+                        </div>
+                        <div class="text-muted small mt-1">
+                            <code>@a.ResourceId</code> · @a.ResourceName
+                        </div>
+                        <div class="mt-1">@a.Message</div>
+                    </div>
+                </div>
+            </div>
+        }
+        @if (_filtered.Count == 0)
+        {
+            <div class="col-12 text-muted text-center p-4">无告警</div>
+        }
+    </div>
+}
+
+@code {
+    private List<AlertRecord>? _alerts;
+    private AlertSummary _summary = new();
+    private string SeverityFilter = "";
+
+    private List<AlertRecord> _filtered =>
+        (_alerts ?? new()).Where(a => string.IsNullOrEmpty(SeverityFilter) || a.Severity == SeverityFilter).ToList();
+
+    protected override async Task OnInitializedAsync()
+    {
+        try
+        {
+            _alerts = await AlertSvc.ListAsync();
+            _summary = await AlertSvc.GetSummaryAsync();
+        }
+        catch { _alerts = new(); }
+    }
+
+    private void Filter(string s) => SeverityFilter = s;
+
+    private string SeverityColor(string s) => s switch { "critical" => "danger", "warning" => "warning", _ => "info" };
+    private string SeverityLabel(string s) => s switch { "critical" => "严重", "warning" => "警告", _ => "信息" };
+    private string StatusColor(string s) => s switch { "active" => "danger", "ack" => "warning", _ => "secondary" };
+    private string StatusLabel(string s) => s switch { "active" => "活跃", "ack" => "已确认", _ => "已恢复" };
+}

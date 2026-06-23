@@ -1,0 +1,137 @@
+@page "/expiry"
+@inject ExpiryCheckService ExpirySvc
+
+<PageTitle>到期提醒</PageTitle>
+
+<h1>到期提醒</h1>
+<p class="text-muted">证书与域名到期扫描，30 天内到期标黄，已过期标红。</p>
+
+@if (_certs == null || _domains == null)
+{
+    <div class="text-muted p-5 text-center">加载中...</div>
+}
+else
+{
+    <div class="row g-3 mb-4">
+        <div class="col-md-3">
+            <div class="card text-center shadow-sm border-danger">
+                <div class="card-body">
+                    <div class="display-6 text-danger">@_expiredCount</div>
+                    <div class="text-muted">已过期</div>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-3">
+            <div class="card text-center shadow-sm border-warning">
+                <div class="card-body">
+                    <div class="display-6 text-warning">@_soonCount</div>
+                    <div class="text-muted">30天内到期</div>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-3">
+            <div class="card text-center shadow-sm">
+                <div class="card-body">
+                    <div class="display-6 text-success">@_okCount</div>
+                    <div class="text-muted">正常</div>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-3 d-flex align-items-center justify-content-center">
+            <button class="btn btn-outline-primary btn-sm" @onclick="Reload">刷新</button>
+        </div>
+    </div>
+
+    <div class="card shadow-sm mb-4">
+        <div class="card-header bg-white"><strong>SSL 证书</strong></div>
+        <div class="card-body">
+            <table class="table table-hover table-sm align-middle mb-0">
+                <thead>
+                    <tr><th>域名</th><th>签发机构</th><th>到期时间</th><th>剩余天数</th><th>备注</th></tr>
+                </thead>
+                <tbody>
+                    @foreach (var c in _certs.OrderBy(c => c.ExpireAt))
+                    {
+                        <tr class="@RowClass(c.DaysRemaining)">
+                            <td><code>@c.Domain</code></td>
+                            <td>@c.Issuer</td>
+                            <td>@c.ExpireAt.ToLocalTime().ToString("yyyy-MM-dd")</td>
+                            <td>
+                                @if (c.DaysRemaining < 0)
+                                {
+                                    <span class="badge bg-danger">已过期 @(-c.DaysRemaining) 天</span>
+                                }
+                                else if (c.DaysRemaining <= 30)
+                                {
+                                    <span class="badge bg-warning text-dark">@c.DaysRemaining 天</span>
+                                }
+                                else
+                                {
+                                    <span class="badge bg-success">@c.DaysRemaining 天</span>
+                                }
+                            </td>
+                            <td>@(c.Note ?? "-")</td>
+                        </tr>
+                    }
+                </tbody>
+            </table>
+        </div>
+    </div>
+
+    <div class="card shadow-sm">
+        <div class="card-header bg-white"><strong>域名到期（来自云资源）</strong></div>
+        <div class="card-body">
+            <table class="table table-hover table-sm align-middle mb-0">
+                <thead>
+                    <tr><th>域名</th><th>到期时间</th><th>剩余天数</th></tr>
+                </thead>
+                <tbody>
+                    @foreach (var d in _domains.OrderBy(d => d.ExpireAt))
+                    {
+                        <tr class="@RowClass(d.DaysRemaining)">
+                            <td><code>@d.Domain</code></td>
+                            <td>@d.ExpireAt.ToLocalTime().ToString("yyyy-MM-dd")</td>
+                            <td>
+                                @if (d.DaysRemaining < 0)
+                                {
+                                    <span class="badge bg-danger">已过期</span>
+                                }
+                                else if (d.DaysRemaining <= 30)
+                                {
+                                    <span class="badge bg-warning text-dark">@d.DaysRemaining 天</span>
+                                }
+                                else
+                                {
+                                    <span class="badge bg-success">@d.DaysRemaining 天</span>
+                                }
+                            </td>
+                        </tr>
+                    }
+                </tbody>
+            </table>
+        </div>
+    </div>
+}
+
+@code {
+    private List<Certificate>? _certs;
+    private List<DomainExpiry>? _domains;
+
+    private int _expiredCount => (_certs ?? new()).Count(c => c.DaysRemaining < 0);
+    private int _soonCount => (_certs ?? new()).Count(c => c.DaysRemaining >= 0 && c.DaysRemaining <= 30);
+    private int _okCount => (_certs ?? new()).Count(c => c.DaysRemaining > 30);
+
+    protected override async Task OnInitializedAsync() => await Reload();
+
+    private async Task Reload()
+    {
+        try
+        {
+            _certs = await ExpirySvc.ListCertificatesAsync();
+            _domains = await ExpirySvc.GetDomainExpiriesAsync();
+        }
+        catch { _certs = new(); _domains = new(); }
+    }
+
+    private string RowClass(int days) => days < 0 ? "table-danger" : days <= 30 ? "table-warning" : "";
+}

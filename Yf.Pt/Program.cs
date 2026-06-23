@@ -16,12 +16,19 @@ builder.Services.AddDbContext<AppDbContext>(opt =>
 
 // 云资源提供者（当前 Mock，后续切换为 Aliyun 实现）
 builder.Services.AddSingleton<ICloudResourceProvider, MockCloudResourceProvider>();
+builder.Services.AddSingleton<IAlertProvider, MockAlertProvider>();
+builder.Services.AddSingleton<ICostProvider, MockCostProvider>();
 
 // 业务服务
 builder.Services.AddScoped<AppProjectService>();
 builder.Services.AddScoped<DomainBindingService>();
 builder.Services.AddScoped<LocalResourceService>();
 builder.Services.AddScoped<DashboardService>();
+builder.Services.AddScoped<KnowledgeService>();
+builder.Services.AddScoped<ExpiryCheckService>();
+builder.Services.AddScoped<AlertService>();
+builder.Services.AddScoped<CostService>();
+builder.Services.AddScoped<TopologyService>();
 
 var app = builder.Build();
 

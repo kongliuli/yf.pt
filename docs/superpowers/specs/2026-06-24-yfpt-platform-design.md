@@ -217,6 +217,58 @@ public interface ICloudResourceProvider
 ## 11. 不做（YAGNI）
 
 - 登录鉴权、多租户
-- 计费、告警推送
 - 实时指标落库历史归档
 - WebAssembly 客户端
+
+## 12. 第二阶段扩展模块（Mock 实现）
+
+在资源查看基础上扩展五个模块，全部 Mock 起步，与现有架构保持一致的接口抽象。
+
+### 12.1 知识库 `/knowledge`
+
+- 实体 `KnowledgeArticle`：Title/Content(Markdown)/Category(sop/doc/faq)/Tags/AppProjectId?/Author
+- `KnowledgeService`：CRUD + 关键字搜索（SQLite LIKE 起步，后续可升级 FTS5）
+- 页面：列表（按分类/标签筛选）+ 详情（Markdig 渲染）+ 新增/编辑
+- 与 App 项目关联：文档可挂在项目下
+
+### 12.2 到期提醒 `/expiry`
+
+- 实体 `Certificate`：Domain/Issuer/ExpireAt/DaysRemaining（计算属性）
+- `ExpiryCheckService`：扫描证书 + 云资源域名 expire，返回即将到期（30天内）列表
+- 页面：证书表 + 域名到期表，按紧急程度标红/黄
+- 种子数据：含已过期、即将到期、正常三类
+
+### 12.3 资源拓扑 `/topology`
+
+- `TopologyService`：基于现有 项目→域名→云资源 关系构建节点与边
+- 渲染：Mermaid flowchart（JS 互操作），CDN 引入 mermaid.js
+- 页面：按项目展示拓扑图，节点点击跳转资源详情
+
+### 12.4 告警聚合 `/alerts`
+
+- 实体 `AlertRecord`：ResourceId/ResourceName/Severity(critical/warning/info)/Title/Message/Status(active/ack/resolved)/TriggeredAt
+- `IAlertProvider` + `MockAlertProvider`（仿 `ICloudResourceProvider`）
+- `AlertService`：列表 + 按严重程度/状态筛选 + 统计
+- 页面：告警卡片列表 + 顶部统计 + 筛选
+
+### 12.5 成本分摊 `/costs`
+
+- 实体 `CostRecord`：ResourceId/ResourceName/AppProjectId?/Amount/Currency/Period(yyyy-MM)/Category(ecs/rds/slb/domain/other)
+- `ICostProvider` + `MockCostProvider`
+- `CostService`：按项目/类别/周期汇总
+- 页面：成本总览卡片 + 按项目柱图 + 按类别饼图 + 明细表
+
+### 12.6 数据模型补充
+
+```
+KnowledgeArticle:  Id, Title, Content, Category, Tags, AppProjectId?, Author, CreatedAt, UpdatedAt
+Certificate:       Id, Domain, Issuer, ExpireAt, Note
+AlertRecord:       Id, ResourceId, ResourceName, Severity, Title, Message, Status, TriggeredAt
+CostRecord:        Id, ResourceId, ResourceName, AppProjectId?, Amount, Currency, Period, Category
+```
+
+### 12.7 依赖方向（同第一阶段）
+
+`Pages → Services → (Data | Providers) → Models`
+
+告警与成本各自有 Provider 抽象，与 `ICloudResourceProvider` 并列，便于后续替换为真实数据源。

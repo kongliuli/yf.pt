@@ -1,0 +1,26 @@
+@* 按类别成本饼图 *@
+@if (Data == null || Data.Count == 0)
+{
+    <div class="text-muted p-4 text-center">暂无数据</div>
+}
+else
+{
+    <ApexChart TItem="CostSlice" Title="按类别成本 (¥)" Height="300" Options="_options">
+        <ApexPointSeries TItem="CostSlice"
+                         Name="成本"
+                         SeriesType="SeriesType.Donut"
+                         Items="Data"
+                         XValue="@(x => x.Label)"
+                         YValue="@(x => x.Amount)" />
+    </ApexChart>
+}
+
+@code {
+    [Parameter] public List<CostSlice>? Data { get; set; }
+
+    private ApexChartOptions<CostSlice> _options = new()
+    {
+        Chart = new Chart { Toolbar = new Toolbar { Show = false } },
+        Legend = new Legend { Position = LegendPosition.Bottom }
+    };
+}

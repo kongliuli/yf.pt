@@ -1,0 +1,68 @@
+@page "/knowledge/{Id:int}"
+@inject KnowledgeService KnowledgeSvc
+@inject NavigationManager Nav
+@using Markdig
+
+<PageTitle>知识库详情</PageTitle>
+
+@if (_article == null)
+{
+    <div class="text-muted p-5 text-center">加载中或不存在...</div>
+}
+else
+{
+    <div class="d-flex justify-content-between align-items-center mb-3">
+        <div>
+            <a href="/knowledge" class="text-decoration-none small">← 返回知识库</a>
+            <h1 class="mt-2 mb-0">@_article.Title</h1>
+        </div>
+        <div>
+            <button class="btn btn-sm btn-outline-secondary" @onclick="Edit">编辑</button>
+            <button class="btn btn-sm btn-outline-danger ms-1" @onclick="Delete">删除</button>
+        </div>
+    </div>
+
+    <div class="text-muted small mb-3">
+        <span class="badge bg-@CategoryColor(_article.Category)">@CategoryLabel(_article.Category)</span>
+        @( _article.AppProject?.Name ?? "通用") ·
+        @(_article.Author ?? "未知") ·
+        更新于 @_article.UpdatedAt.ToLocalTime().ToString("yyyy-MM-dd HH:mm")
+        @if (!string.IsNullOrEmpty(_article.Tags))
+        {
+            <span class="ms-2">
+                @foreach (var t in _article.Tags.Split(',', StringSplitOptions.RemoveEmptyEntries))
+                {
+                    <span class="badge bg-light text-dark me-1">@t.Trim()</span>
+                }
+            </span>
+        }
+    </div>
+
+    <div class="card shadow-sm">
+        <div class="card-body">
+            @((MarkupString)Markdown.ToHtml(_article.Content ?? "", new MarkdownPipelineBuilder().UseAdvancedExtensions().Build()))
+        </div>
+    </div>
+}
+
+@code {
+    [Parameter] public int Id { get; set; }
+    private KnowledgeArticle? _article;
+
+    protected override async Task OnInitializedAsync()
+    {
+        try { _article = await KnowledgeSvc.GetAsync(Id); }
+        catch { _article = null; }
+    }
+
+    private void Edit() => Nav.NavigateTo($"/knowledge/{Id}");
+
+    private async Task Delete()
+    {
+        await KnowledgeSvc.DeleteAsync(Id);
+        Nav.NavigateTo("/knowledge");
+    }
+
+    private string CategoryLabel(string c) => c switch { "sop" => "SOP", "faq" => "FAQ", _ => "文档" };
+    private string CategoryColor(string c) => c switch { "sop" => "primary", "faq" => "warning", _ => "info" };
+}

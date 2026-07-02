@@ -1,0 +1,44 @@
+@* 各项目域名数柱图 *@
+@inject AppProjectService ProjectService
+
+@if (_data == null)
+{
+    <div class="text-muted p-4 text-center">加载中...</div>
+}
+else
+{
+    <ApexChart TItem="ProjectSlice" Title="各项目域名数" Height="300" Options="_options">
+        <ApexPointSeries TItem="ProjectSlice"
+                         Name="域名数"
+                         SeriesType="SeriesType.Bar"
+                         Items="@_data"
+                         XValue="@(x => x.Name)"
+                         YValue="@(x => x.Count)" />
+    </ApexChart>
+}
+
+@code {
+    private List<ProjectSlice>? _data;
+    private ApexChartOptions<ProjectSlice> _options = new()
+    {
+        Chart = new Chart { Toolbar = new Toolbar { Show = false } }
+    };
+
+    protected override async Task OnInitializedAsync()
+    {
+        try
+        {
+            var projects = await ProjectService.ListAsync();
+            _data = projects
+                .Select(p => new ProjectSlice { Name = p.Name, Count = p.DomainBindings.Count })
+                .ToList();
+        }
+        catch { _data = new(); }
+    }
+
+    public class ProjectSlice
+    {
+        public string Name { get; set; } = "";
+        public decimal Count { get; set; }
+    }
+}

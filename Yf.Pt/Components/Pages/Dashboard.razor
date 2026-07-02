@@ -1,0 +1,117 @@
+@page "/"
+@inject DashboardService DashboardSvc
+
+<PageTitle>总览仪表盘</PageTitle>
+
+<h1>总览仪表盘</h1>
+
+@if (_summary == null)
+{
+    <div class="text-muted p-5 text-center">加载中...</div>
+}
+else
+{
+    <div class="row g-3 mb-4">
+        <div class="col-md-3">
+            <div class="card text-center shadow-sm">
+                <div class="card-body">
+                    <div class="display-6 text-primary">@_summary.ProjectCount</div>
+                    <div class="text-muted">App 项目</div>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-3">
+            <div class="card text-center shadow-sm">
+                <div class="card-body">
+                    <div class="display-6 text-success">@_summary.DomainCount</div>
+                    <div class="text-muted">域名绑定</div>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-3">
+            <div class="card text-center shadow-sm">
+                <div class="card-body">
+                    <div class="display-6 text-info">@_summary.LocalResourceCount</div>
+                    <div class="text-muted">本地资源</div>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-3">
+            <div class="card text-center shadow-sm">
+                <div class="card-body">
+                    <div class="display-6 text-warning">@_summary.CloudResourceCount</div>
+                    <div class="text-muted">云资源</div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div class="row g-3 mb-4">
+        <div class="col-md-6">
+            <div class="card shadow-sm">
+                <div class="card-body">
+                    <CpuTrendChart />
+                </div>
+            </div>
+        </div>
+        <div class="col-md-6">
+            <div class="card shadow-sm">
+                <div class="card-body">
+                    <ResourceStatusChart />
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div class="row g-3 mb-4">
+        <div class="col-md-12">
+            <div class="card shadow-sm">
+                <div class="card-body">
+                    <ProjectDomainChart />
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div class="card shadow-sm">
+        <div class="card-header bg-white">
+            <strong>异常状态资源</strong>
+        </div>
+        <div class="card-body">
+            @if (_summary.StoppedResources.Count == 0)
+            {
+                <div class="text-success">无异常资源</div>
+            }
+            else
+            {
+                <table class="table table-sm mb-0">
+                    <thead>
+                        <tr><th>资源ID</th><th>名称</th><th>类型</th><th>区域</th><th>状态</th></tr>
+                    </thead>
+                    <tbody>
+                        @foreach (var r in _summary.StoppedResources)
+                        {
+                            <tr>
+                                <td><code>@r.ResourceId</code></td>
+                                <td>@r.Name</td>
+                                <td>@r.Type</td>
+                                <td>@(r.Region ?? "-")</td>
+                                <td><span class="badge bg-danger">@r.Status</span></td>
+                            </tr>
+                        }
+                    </tbody>
+                </table>
+            }
+        </div>
+    </div>
+}
+
+@code {
+    private DashboardSummary? _summary;
+
+    protected override async Task OnInitializedAsync()
+    {
+        try { _summary = await DashboardSvc.GetSummaryAsync(); }
+        catch { _summary = new DashboardSummary(); }
+    }
+}

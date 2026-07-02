@@ -1,0 +1,46 @@
+@* 云资源状态分布饼图 *@
+@inject DashboardService DashboardSvc
+
+@if (_data == null)
+{
+    <div class="text-muted p-4 text-center">加载中...</div>
+}
+else
+{
+    <ApexChart TItem="StatusSlice" Title="云资源状态分布" Height="300" Options="_options">
+        <ApexPointSeries TItem="StatusSlice"
+                         Name="资源数"
+                         SeriesType="SeriesType.Donut"
+                         Items="@_data"
+                         XValue="@(x => x.Status)"
+                         YValue="@(x => x.Count)" />
+    </ApexChart>
+}
+
+@code {
+    private List<StatusSlice>? _data;
+    private ApexChartOptions<StatusSlice> _options = new()
+    {
+        Chart = new Chart { Toolbar = new Toolbar { Show = false } },
+        Legend = new Legend { Position = LegendPosition.Bottom }
+    };
+
+    protected override async Task OnInitializedAsync()
+    {
+        try
+        {
+            var resources = await DashboardSvc.ListCloudResourcesAsync();
+            _data = resources
+                .GroupBy(r => r.Status)
+                .Select(g => new StatusSlice { Status = g.Key, Count = g.Count() })
+                .ToList();
+        }
+        catch { _data = new(); }
+    }
+
+    public class StatusSlice
+    {
+        public string Status { get; set; } = "";
+        public decimal Count { get; set; }
+    }
+}

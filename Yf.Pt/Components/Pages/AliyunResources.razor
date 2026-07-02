@@ -1,0 +1,108 @@
+@page "/aliyun"
+@inject DashboardService DashboardSvc
+
+<PageTitle>阿里云资源</PageTitle>
+
+<h1>阿里云资源</h1>
+
+@if (_resources == null)
+{
+    <div class="text-muted p-5 text-center">加载中...</div>
+}
+else
+{
+    <div class="mb-3">
+        @foreach (var t in _types)
+        {
+            <button class="btn btn-sm @(SelectedType == t ? "btn-primary" : "btn-outline-secondary") me-2"
+                    @onclick="() => SelectType(t)">
+                @t (@_resources.Count(r => r.Type == t))
+            </button>
+        }
+    </div>
+
+    <div class="card shadow-sm">
+        <div class="card-body">
+            <table class="table table-hover table-sm align-middle">
+                <thead>
+                    <tr>
+                        <th>资源ID</th>
+                        <th>名称</th>
+                        <th>类型</th>
+                        <th>区域</th>
+                        <th>状态</th>
+                        <th>关键属性</th>
+                        <th></th>
+                    </tr>
+                </thead>
+                <tbody>
+                    @foreach (var r in _filtered)
+                    {
+                        <tr>
+                            <td><code>@r.ResourceId</code></td>
+                            <td>@r.Name</td>
+                            <td><span class="badge bg-secondary">@r.Type</span></td>
+                            <td>@(r.Region ?? "-")</td>
+                            <td>
+                                <span class="badge @(r.Status == "Running" || r.Status == "Active" ? "bg-success" : "bg-danger")">
+                                    @r.Status
+                                </span>
+                            </td>
+                            <td>
+                                @string.Join(" · ", r.Attributes.Select(kv => $"{kv.Key}={kv.Value}"))
+                            </td>
+                            <td>
+                                <button class="btn btn-sm btn-outline-primary"
+                                        @onclick="() => ShowDetail(r)">
+                                    指标
+                                </button>
+                            </td>
+                        </tr>
+                    }
+                </tbody>
+            </table>
+        </div>
+    </div>
+
+    @if (_selected != null)
+    {
+        <div class="modal d-block" tabindex="-1">
+            <div class="modal-dialog modal-lg">
+                <div class="modal-content">
+                    <div class="modal-header">
+                        <h5 class="modal-title">@_selected.Name · 指标</h5>
+                        <button type="button" class="btn-close" @onclick="CloseDetail"></button>
+                    </div>
+                    <div class="modal-body">
+                        <ResourceMetricChart ResourceId="@_selected.ResourceId" />
+                    </div>
+                </div>
+            </div>
+        </div>
+        <div class="modal-backdrop fade show"></div>
+    }
+}
+
+@code {
+    private List<CloudResource>? _resources;
+    private List<string> _types = new();
+    private string SelectedType = "ecs";
+    private CloudResource? _selected;
+
+    private List<CloudResource> _filtered =>
+        _resources?.Where(r => r.Type == SelectedType).ToList() ?? new();
+
+    protected override async Task OnInitializedAsync()
+    {
+        try
+        {
+            _resources = await DashboardSvc.ListCloudResourcesAsync();
+            _types = _resources.Select(r => r.Type).Distinct().OrderBy(x => x).ToList();
+        }
+        catch { _resources = new(); }
+    }
+
+    private void SelectType(string t) => SelectedType = t;
+    private void ShowDetail(CloudResource r) => _selected = r;
+    private void CloseDetail() => _selected = null;
+}
